@@ -1,0 +1,41 @@
+# Compose V2 では最上位の version: キーは廃止済み。書くと警告が出るので入れない
+services:
+  db:
+    # alpine ベースはイメージが小さく起動が速い。M2 でも arm64 イメージが提供されている
+    image: postgres:17-alpine
+    container_name: stockade-db
+
+    # 手動で down するまで生かす。docker daemon 再起動後も自動で上がる
+    restart: unless-stopped
+
+    environment:
+      # この3つは postgres 公式イメージの初回起動時にだけ読まれる。
+      # 一度 volume が作られた後に変更しても反映されない（volume を消す必要がある）
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      # コンテナ内のタイムゾーン。TIMESTAMPTZ を使うので本質的には不要だが、
+      # psql でログを見るときに JST で表示されて読みやすい
+      TZ: Asia/Tokyo
+
+    ports:
+      # ホスト側ポートを .env で可変にしておく。5432 が既に埋まっていたら .env だけ直せばいい
+      - "${POSTGRES_PORT}:5432"
+
+    volumes:
+      # 名前付き volume。bind mount にしないのは、macOS のファイル共有層を経由すると
+      # Postgres の fsync が極端に遅くなるため
+      - pgdata:/var/lib/postgresql/data
+
+    healthcheck:
+      # pg_isready は「接続を受け付けられる状態か」を返すコマンド。
+      # コンテナが起動した ≠ Postgres が接続可能、なのでこれが要る
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      # 起動直後の失敗をリトライ扱いにする。これが無いと初回起動で unhealthy になりがち
+      start_period: 10s
+      retries: 10
+
+volumes:
+  pgdata:
