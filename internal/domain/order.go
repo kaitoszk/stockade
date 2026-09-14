@@ -1,5 +1,7 @@
 package domain
 
+import "time"
+
 // 注文ステータスを表す
 type OrderStatus string
 
@@ -24,6 +26,7 @@ func (s OrderStatus) Isvalid() bool {
 	}
 }
 
+// 受注明細
 type OrderItem struct {
 	ID        int64
 	OrderID   int64
@@ -32,8 +35,28 @@ type OrderItem struct {
 	UnitPrice int64 // 注文時点の単価
 }
 
-// 明細の小径を返す
+// 明細の小計を返す
 func (i *OrderItem) subtotal() int64 {
 	return i.UnitPrice * i.Quantity
 }
 
+// 受注
+type Order struct {
+	ID        int64
+	userID    int64
+	Status    OrderStatus
+	Items     []OrderItem
+	CreatedAt time.Time
+	UpdatedAt time.Time
+}
+
+// 注文全体の合計金額を返す
+func (o *Order) TotalPrice() int64 {
+	var total int64
+	for i := range o.Items {
+		total += o.Items[i].subtotal()
+	}
+	return total
+}
+
+// todo:CanTransitionTo
