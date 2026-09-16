@@ -59,4 +59,18 @@ func (o *Order) TotalPrice() int64 {
 	return total
 }
 
-// todo:CanTransitionTo
+func (o *Order) CanTransitionTo(to OrderStatus) bool {
+	switch o.Status {
+	case OrderStatusPending:
+		return to == OrderStatusShipped || to == OrderStatusCancelled
+	case OrderStatusShipped, OrderStatusCancelled:
+		return false
+	default:
+		return false
+	}
+}
+
+// 自分の注文か
+func (o *Order) IsOwnedBy(userID int64) bool {
+	return o.userID == userID
+}
