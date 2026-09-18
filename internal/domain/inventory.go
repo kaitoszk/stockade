@@ -9,7 +9,7 @@ type Inventory struct {
 	QuantityOnHand int64
 	// 注文されたがまだ出荷していない数
 	QuantityReserved int64
-	UpdatedAt time.Time
+	UpdatedAt        time.Time
 }
 
 // 販売可能数を返す
