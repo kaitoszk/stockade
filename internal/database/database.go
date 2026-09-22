@@ -32,9 +32,9 @@ type Config struct {
 // 本番では負荷試験の結果に合わせて調整する種類の値なので、ここでの数字はあくまで初期値。
 func DefaultConfig(dsn string) Config {
 	return Config{
-		DSN: dsn,
-		MaxOpenConns: 25,
-		MaxIdleConns: 25,
+		DSN:             dsn,
+		MaxOpenConns:    25,
+		MaxIdleConns:    25,
 		ConnMaxLifetime: 5 * time.Minute,
 		ConnMaxIdleTime: 1 * time.Minute,
 	}
@@ -52,5 +52,10 @@ func Open(ctx context.Context, cfg Config) (*sql.DB, error) {
 	db.SetConnMaxLifetime(cfg.ConnMaxLifetime)
 	db.SetConnMaxIdleTime(cfg.ConnMaxIdleTime)
 
-	
+	// ここで接続する
+	if err := db.PingContext(ctx); err != nil {
+		db.Close()
+		return nil, fmt.Errorf("ping database: %w", err)
+	}
+	return db, nil
 }
