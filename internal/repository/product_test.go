@@ -73,12 +73,19 @@ func TestProductRepository_Create(t *testing.T) {
 				t.Fatalf("err = %v, want %v", err, tt.wantErr)
 			}
 
-			
-			
-
-
-			
+			if tt.wantErr == nil {
+				if p.ID != tt.wantID {
+					t.Errorf("p.ID = %d, want %d", p.ID, tt.wantID)
+				}
+				if p.Version != int(tt.wantVersion) {
+					t.Errorf("p.Version = %d, want %d", p.Version, tt.wantVersion)
+				}
+			}
+			if err := mock.ExpectationsWereMet(); err != nil {
+				t.Errorf("unmet expectations: %v", err)
+			}
 		})
-		
 	}
 }
+
+// TODO:アプリの全体像把握、上記テストコードの理解、続き
