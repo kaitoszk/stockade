@@ -15,11 +15,11 @@ type ProductRepository struct {
 
 func NewProductRepository(db DBTX) *ProductRepository {
 	return &ProductRepository{db: db}
-} 
+}
 
 func (r *ProductRepository) Create(ctx context.Context, p *domain.Product) error {
 	const query = `
-	  INSERT INTO products (sku, name, price) 
+	  INSERT INTO products (sku, name, price)
 	  VALUES ($1, $2, $3) RETURNING id, version, created_at, updated_at
 	`
 	err := r.db.QueryRowContext(ctx, query, p.SKU, p.Name, p.Price).
@@ -31,7 +31,7 @@ func (r *ProductRepository) Create(ctx context.Context, p *domain.Product) error
 		}
 		return fmt.Errorf("insert product: %w", err)
 	}
-	return nil	
+	return nil
 }
 
 func (r *ProductRepository) GetByID(ctx context.Context, id int64) (*domain.Product, error) {
@@ -59,7 +59,7 @@ func (r *ProductRepository) GetByID(ctx context.Context, id int64) (*domain.Prod
 
 func (r *ProductRepository) Update(ctx context.Context, p *domain.Product) error {
 	const query = `
-		UPDATE produts SET name = $1, price = $2, version = version + 1, updated_at = now()
+		UPDATE products SET name = $1, price = $2, version = version + 1, updated_at = now()
 		WHERE id = $3 AND version = $4 RETURNING version, updated_at
 	`
 
