@@ -158,3 +158,106 @@ func TestProductRepository_GetByID(t *testing.T) {
 		})
 	}
 }
+
+func TestProductRepository_Update(t *testing.T) {
+	updateQuery := regexp.QuoteMeta("UPDATE products")
+	existsQuery := regexp.QuoteMeta("SELECT EXISTS")
+	returningCols := []string{"version", "updated_at"}
+
+	tests := []struct {
+		name        string
+		setup       func(mock sqlmock.Sqlmock)
+		wantErr     error
+		wantVersion int64
+	}{
+		{
+			name: "成功：versionが一致して更新され、新しいversionが書き戻される",
+			setup: func(mock sqlmock.Sqlmock) {
+				mock.ExpectQuery(updateQuery).
+					WithArgs("新しい名前", 1200, 1, 3).
+					WillReturnRows(sqlmock.NewRows(returningCols).AddRow(4, testTime))
+			},
+			wantErr: nil,
+			wantVersion: 4,
+		},
+		{
+			name: "UPDATEがエラー：EXISTSは投げずにwrapして返す",
+			setup: func(mock sqlmock.Sqlmock) {
+				mock.ExpectQuery(updateQuery).
+					WithArgs("新しい名前", 1200, 1, 3).
+					WillReturnError(errDB)
+			},
+			wantErr: errDB,
+			wantVersion: 3,
+		},
+		{
+			name: "UPDATEが0行、EXISTSがエラー：wrapして返す",
+			setup: func(mock sqlmock.Sqlmock) {
+				mock.ExpectQuery(updateQuery).
+					WithArgs("新しい名前", 1200, 1, 3).
+					WillReturnRows(sqlmock.NewRows(returningCols))
+				mock.ExpectQuery(existsQuery).
+					WithArgs(1).
+					WillReturnError(errDB)
+			},
+			wantErr: errDB,
+			wantVersion: 3,
+		},
+		{
+			name: "UPDATEが0行、商品が存在しない：ErrNotFound",
+			setup: func(mock sqlmock.Sqlmock) {
+				mock.ExpectQuery(updateQuery).
+					WithArgs("新しい名前", 1200, 1, 3).
+					WillReturnRows(sqlmock.NewRows(returningCols))
+				mock.ExpectQuery(existsQuery).
+					WithArgs(1).
+					WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(false))
+			},
+			wantErr: domain.ErrNotFound,
+			wantVersion: 3,
+		},
+		{
+			name: "UPDATEが0行、商品は存在する：version不一致なのでErrConflict",
+			setup: func(mock sqlmock.Sqlmock) {
+				mock.ExpectQuery(updateQuery).
+					WithArgs("新しい商品", 1200, 1, 3).
+					WillReturnRows(sqlmock.NewRows(returningCols))
+				mock.ExpectQuery(existsQuery).
+					WithArgs(1).
+					WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRows(true))
+			},
+			wantErr: domain.ErrConflict,
+			wantVersion: 3,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			db, mock, err := sqlmock.New()
+			if err != nil {
+				t.Fatalf("sqlmock.New: %v", err)
+			}
+			defer db.Close()
+
+			tt.setup(mock)
+			repo := NewProductRepository(db)
+
+			p := &domain.Product{ID: 1, Name: "新しい名前", Price: 1200, Version: 3}
+
+			err = repo.Update(t.Context(), p)
+
+			if !errors.Is(err, tt.wantErr) {
+				t.Fatalf("err = %v, want %v", err, tt.wantErr)
+			}
+
+			if p.Version != int(tt.wantVersion) {
+				t.Errorf("p.Version = %d, want %d", p.Version, tt.wantVersion)
+			}
+
+			if err := mock.ExpectationsWereMet(); err != nil {
+				t.Errorf("unmet expextations: %v", err)
+			}
+		})
+	}
+}
+
+// TODO:willreturnrows, willreturnerrorの使い分け、227行目エラー、expectationsweremet
