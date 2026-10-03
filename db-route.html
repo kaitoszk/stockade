@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>stockade の全体像</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700&family=Zen+Old+Mincho:wght@600;900&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#E6E8E3; --card:#EFF1ED; --ink:#1C231F; --soft:#586159; --rule:#C6CBC3;
+    --add-bg:rgba(107,143,113,.20); --add-fg:#3F5C45;
+    --chg-bg:rgba(168,138,76,.22);  --chg-fg:#6E5A2C;
+    --del-bg:rgba(140,58,70,.13);   --del-fg:#8C3A46;
+    --acc:#2F5D9C; --acc-bg:rgba(47,93,156,.13);
+    --sans:"Zen Kaku Gothic New", system-ui, sans-serif;
+    --serif:"Zen Old Mincho", serif;
+    --mono:ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --paper:#161A18; --card:#1E2320; --ink:#E2E6E1; --soft:#9AA59C; --rule:#333A35;
+      --add-bg:rgba(107,143,113,.26); --add-fg:#A6CBAB;
+      --chg-bg:rgba(168,138,76,.26);  --chg-fg:#DCC28C;
+      --del-bg:rgba(160,70,84,.28);   --del-fg:#E8A3AD;
+      --acc:#86AADB; --acc-bg:rgba(134,170,219,.17);
+    }
+  }
+
+  *{box-sizing:border-box}
+  html{-webkit-text-size-adjust:100%}
+  body{margin:0; background:var(--paper); color:var(--ink); font-family:var(--sans); font-size:15px; line-height:1.8; font-feature-settings:"palt" 1}
+  .wrap{max-width:1120px; margin:0 auto; padding:0 20px 96px}
+
+  header{padding:56px 0 28px}
+  h1{font-family:var(--serif); font-weight:900; font-size:clamp(26px,4.4vw,38px); line-height:1.35; margin:0 0 10px}
+  .lede{color:var(--soft); margin:0; max-width:64ch}
+  h2{font-family:var(--serif); font-weight:600; font-size:clamp(19px,2.6vw,23px); margin:0 0 14px}
+  section{padding:40px 0 0}
+  section + section{margin-top:40px; border-top:1px solid var(--rule)}
+  code{font-family:var(--mono); font-size:.9em; background:rgba(127,127,127,.12); padding:1px 5px; border-radius:3px}
+
+  button{font-family:inherit; font-size:14px; color:var(--ink); background:transparent; border:1px solid var(--rule); border-radius:4px; padding:6px 12px; cursor:pointer; line-height:1.4}
+  button:hover{border-color:var(--soft)}
+  button:focus-visible, input:focus-visible{outline:2px solid var(--acc); outline-offset:2px}
+  .controls{display:flex; flex-wrap:wrap; gap:8px; align-items:center}
+  .dots{display:flex; flex-wrap:wrap; gap:4px}
+  .dot{min-width:34px; padding:5px 0; font-family:var(--mono); font-size:13px}
+  .dot.cur{background:var(--acc); border-color:var(--acc); color:var(--paper)}
+  .kbd{font-size:12.5px; color:var(--soft); margin-left:6px}
+
+  .caption{margin:20px 0 12px}
+  .caption .row{display:flex; flex-wrap:wrap; align-items:baseline; gap:10px}
+  .num{font-family:var(--mono); font-size:13px; color:var(--soft)}
+  .label{font-size:19px; font-weight:700}
+  .badge{font-size:12px; padding:2px 9px; border-radius:3px; background:var(--acc-bg); color:var(--acc); white-space:nowrap}
+  .note{color:var(--soft); margin-top:4px}
+
+  pre.sql{margin:0 0 18px; padding:12px 14px; background:var(--card); border-left:2px solid var(--acc); border-radius:0; font-family:var(--mono); font-size:12.5px; line-height:1.75; overflow-x:auto; white-space:pre}
+  .opts{display:flex; flex-wrap:wrap; gap:18px; align-items:center; font-size:13.5px; color:var(--soft); margin-bottom:12px}
+  .opts label{display:flex; align-items:center; gap:6px; cursor:pointer}
+
+  .grid{display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px}
+  @media (max-width:860px){ .grid{grid-template-columns:minmax(0,1fr)} }
+  .tb{background:var(--card); border:1px solid var(--rule); border-radius:6px; padding:12px 14px 10px; min-width:0}
+  .tb.on{border-color:var(--acc)}
+  .tb .head{display:flex; justify-content:space-between; align-items:center; gap:8px; margin-bottom:2px}
+  .tb .name{font-family:var(--mono); font-size:14px; font-weight:700}
+  .tb .refs{font-family:var(--mono); font-size:12px; color:var(--soft); margin-bottom:8px; min-height:1.2em}
+  .scroll{overflow-x:auto}
+  .tb table{width:100%; border-collapse:collapse; font-family:var(--mono); font-size:12.5px}
+  .tb th{font-weight:400; color:var(--soft); text-align:left; padding:4px 10px 4px 0; border-bottom:1px solid var(--rule); white-space:nowrap}
+  .tb td{padding:4px 10px 4px 0; border-bottom:1px solid var(--rule); white-space:nowrap}
+  .tb th.drv, .tb td.drv{color:var(--soft)}
+  tr.nw td{background:var(--add-bg); color:var(--add-fg)}
+  tr.dl td{background:var(--del-bg); color:var(--del-fg); text-decoration:line-through}
+  td.cg{background:var(--chg-bg); color:var(--chg-fg)}
+  td.cg s{opacity:.75}
+  td[data-link]{text-decoration:underline dotted; text-underline-offset:3px; cursor:pointer}
+  tr.lit td{box-shadow:inset 0 0 0 999px var(--acc-bg)}
+  .empty{color:var(--soft)}
+
+  .legend{display:flex; flex-wrap:wrap; gap:14px; margin-top:14px; font-size:13px; color:var(--soft); align-items:center}
+  .sw{font-size:12px; padding:1px 8px; border-radius:3px; font-family:var(--mono)}
+
+  pre.er{margin:0 0 16px; padding:16px; background:var(--card); border-radius:6px; font-family:var(--mono); font-size:13px; line-height:1.7; overflow-x:auto}
+  ul{margin:0; padding-left:1.3em}
+  li{margin:4px 0}
+
+  table.matrix{width:100%; border-collapse:collapse; font-size:13.5px}
+  table.matrix th, table.matrix td{padding:8px 10px; border-bottom:1px solid var(--rule); text-align:left; vertical-align:top}
+  table.matrix th{font-size:12.5px; color:var(--soft); font-weight:500; font-family:var(--mono)}
+  table.matrix td{font-family:var(--mono); font-size:12.5px}
+  table.matrix td:first-child{font-family:var(--sans); font-size:13.5px; white-space:nowrap}
+  .tx{color:var(--acc); font-weight:700}
+  .matrix-wrap{overflow-x:auto}
+  .points{margin-top:18px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1>stockade の全体像</h1>
+  <p class="lede">1つのシナリオを 0 → 10 の順に進めて、各操作で6つのテーブルのどの行・どの列が変わるかを追う。<code>id</code> や <code>user_id</code> などの点線の値にカーソルを乗せると、繋がっている行が光る。</p>
+</header>
+
+<section style="padding-top:0">
+  <div class="controls">
+    <button id="prev" aria-label="前のステップ">← 前へ</button>
+    <button id="next" aria-label="次のステップ">次へ →</button>
+    <div class="dots" id="dots"></div>
+    <span class="kbd">キーボードの ← → でも進める</span>
+  </div>
+
+  <div class="caption">
+    <div class="row">
+      <span class="num" id="num"></span>
+      <span class="label" id="label"></span>
+      <span class="badge" id="tx">1トランザクション</span>
+      <span class="num" id="time"></span>
+    </div>
+    <div class="note" id="note"></div>
+  </div>
+
+  <pre class="sql" id="sql"></pre>
+
+  <div class="opts">
+    <label><input type="checkbox" id="ts"> created_at / updated_at も表示する</label>
+  </div>
+
+  <div class="grid" id="grid"></div>
+
+  <div class="legend">
+    <span><span class="sw" style="background:var(--add-bg);color:var(--add-fg)">追加</span></span>
+    <span><span class="sw" style="background:var(--chg-bg);color:var(--chg-fg)">変更 <s>旧</s> → 新</span></span>
+    <span><span class="sw" style="background:var(--del-bg);color:var(--del-fg);text-decoration:line-through">削除</span></span>
+    <span><span class="sw" style="background:var(--acc-bg);color:var(--acc)">繋がっている行</span></span>
+    <span>（販売可能）は列ではなく quantity_on_hand − quantity_reserved の計算値</span>
+  </div>
+</section>
+
+<section>
+  <h2>テーブル同士の繋がり</h2>
+<pre class="er">users ──┬──&lt; refresh_tokens
+        │
+        └──&lt; orders ──&lt; order_items &gt;── products ─── inventories
+
+refresh_tokens.user_id     → users.id
+orders.user_id             → users.id
+order_items.order_id       → orders.id
+order_items.product_id     → products.id
+inventories.product_id     → products.id   （主キーを兼ねる。だから1商品に在庫行は1つ）</pre>
+  <ul>
+    <li><code>──&lt;</code> は「1つに対して複数」。1人のユーザーが複数の注文を持ち、1つの注文が複数の明細を持つ。</li>
+    <li>繋がりはすべて「子テーブルが親の id を列として持つ」形。親は子のことを知らない（<code>orders</code> に明細の id は入っていない）。</li>
+    <li><code>products</code> と <code>inventories</code> だけは1対1。在庫行は注文のたびに書き換わるので、商品マスタと行を分けてある。</li>
+  </ul>
+</section>
+
+<section>
+  <h2>操作ごとに触るテーブル</h2>
+  <div class="matrix-wrap">
+  <table class="matrix">
+    <thead>
+      <tr><th></th><th>users</th><th>refresh_tokens</th><th>products</th><th>inventories</th><th>orders</th><th>order_items</th><th>tx</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>ユーザー登録</td><td>INSERT</td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+      <tr><td>ログイン</td><td>SELECT</td><td>INSERT</td><td></td><td></td><td></td><td></td><td></td></tr>
+      <tr><td>トークン更新</td><td></td><td>SELECT</td><td></td><td></td><td></td><td></td><td></td></tr>
+      <tr><td>ログアウト</td><td></td><td>DELETE</td><td></td><td></td><td></td><td></td><td></td></tr>
+      <tr><td>商品登録</td><td></td><td></td><td>INSERT</td><td>INSERT</td><td></td><td></td><td class="tx">✓</td></tr>
+      <tr><td>商品編集</td><td></td><td></td><td>UPDATE（version+1）</td><td></td><td></td><td></td><td></td></tr>
+      <tr><td>入荷</td><td></td><td></td><td></td><td>UPDATE on_hand↑</td><td></td><td></td><td></td></tr>
+      <tr><td>注文</td><td></td><td></td><td>SELECT price</td><td>UPDATE reserved↑</td><td>INSERT</td><td>INSERT</td><td class="tx">✓</td></tr>
+      <tr><td>出荷</td><td></td><td></td><td></td><td>UPDATE on_hand↓ reserved↓</td><td>UPDATE status</td><td></td><td class="tx">✓</td></tr>
+      <tr><td>キャンセル</td><td></td><td></td><td></td><td>UPDATE reserved↓</td><td>UPDATE status</td><td></td><td class="tx">✓</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <ul class="points">
+    <li>✓ の操作は複数テーブルを「全部成功か全部失敗か」で書く必要がある。これがトランザクション境界を service に置く理由。</li>
+    <li><code>inventories</code> だけが4種類の操作から UPDATE され、しかも注文は複数ユーザーから同時に来る。だから排他制御の舞台がこのテーブルになる。</li>
+    <li><code>order_items</code> は INSERT されたら二度と変わらない記録。<code>orders</code> も変わるのは <code>status</code> だけ。</li>
+  </ul>
+</section>
+
+<section>
+  <h2>シナリオのために仮置きしている前提</h2>
+  <ul>
+    <li>管理者アカウントは登録 API ではなく初期データとして投入する。</li>
+    <li>商品登録と同時に在庫行を 0 / 0 で作る（<code>products</code> と <code>inventories</code> を1トランザクションで）。</li>
+    <li>入荷（<code>quantity_on_hand</code> を増やす）操作がある。これが無いと在庫が 0 のまま増えない。</li>
+  </ul>
+</section>
+
+</div>
+
+<script>
+(function(){
+  var TABLES = [
+    {name:'users',          key:'id',         cols:['id','email','password_hash','role','created_at','updated_at']},
+    {name:'refresh_tokens', key:'id',         cols:['id','user_id','token_hash','expires_at','created_at']},
+    {name:'products',       key:'id',         cols:['id','sku','name','price','version','created_at','updated_at']},
+    {name:'inventories',    key:'product_id', cols:['product_id','quantity_on_hand','quantity_reserved','updated_at']},
+    {name:'orders',         key:'id',         cols:['id','user_id','status','created_at','updated_at']},
+    {name:'order_items',    key:'id',         cols:['id','order_id','product_id','quantity','unit_price']}
+  ];
+  var FK = {
+    refresh_tokens:{user_id:'users'},
+    inventories:{product_id:'products'},
+    orders:{user_id:'users'},
+    order_items:{order_id:'orders', product_id:'products'}
+  };
+  var TS = {created_at:true, updated_at:true};
+
+  var state = {users:[],refresh_tokens:[],products:[],inventories:[],orders:[],order_items:[]};
+  var now = '';
+  var steps = [];
+  function step(o, fn){
+    now = o.time || '';
+    if(fn) fn(state);
+    o.state = JSON.parse(JSON.stringify(state));
+    steps.push(o);
+  }
+  function inv(s, id){ return s.inventories.find(function(r){ return r.product_id === id; }); }
+
+  step({label:'マイグレーション直後', time:'', tx:false,
+        note:'make migrate-up でテーブルという「器」だけができた状態。6テーブルとも0行。',
+        sql:['-- まだ何も実行していない']});
+
+  step({label:'管理者と田中さんがユーザー登録', time:'09:00', tx:false,
+        note:'password_hash には bcrypt のハッシュだけが入る。role を省略すると DEFAULT の user になる。',
+        sql:["INSERT INTO users (email, password_hash, role) VALUES ('admin@ex.com', '$2a$10$…', 'admin')   -- 初期データ",
+             "INSERT INTO users (email, password_hash)       VALUES ('tanaka@ex.com', '$2a$10$…')            -- 登録 API"]},
+    function(s){
+      s.users.push(
+        {id:1, email:'admin@ex.com',  password_hash:'$2a$10$…', role:'admin', created_at:now, updated_at:now},
+        {id:2, email:'tanaka@ex.com', password_hash:'$2a$10$…', role:'user',  created_at:now, updated_at:now});
+    });
+
+  step({label:'田中さんがログイン', time:'09:05', tx:false,
+        note:'DB に入るのはリフレッシュトークンのハッシュだけ。JWT（アクセストークン）はどこにも保存しない。',
+        sql:["SELECT id, password_hash, role FROM users WHERE email = 'tanaka@ex.com'   -- パスワード照合",
+             "INSERT INTO refresh_tokens (user_id, token_hash, expires_at)",
+             "  VALUES (2, '9f86d0…', now() + interval '7 days')"]},
+    function(s){
+      s.refresh_tokens.push({id:1, user_id:2, token_hash:'9f86d0…', expires_at:'10/11 09:05', created_at:now});
+    });
+
+  step({label:'管理者が商品を2つ登録', time:'09:10', tx:true,
+        note:'商品と在庫行を同じトランザクションで作る。在庫は 0 / 0 から始まる。',
+        sql:["BEGIN",
+             "INSERT INTO products (sku, name, price) VALUES ('KB-001', 'キーボード', 8000) RETURNING id   -- → 1",
+             "INSERT INTO inventories (product_id) VALUES (1)",
+             "COMMIT",
+             "-- マウス（MS-001, 3000円）も同じ流れでもう1回"]},
+    function(s){
+      s.products.push(
+        {id:1, sku:'KB-001', name:'キーボード', price:8000, version:1, created_at:now, updated_at:now},
+        {id:2, sku:'MS-001', name:'マウス',     price:3000, version:1, created_at:now, updated_at:now});
+      s.inventories.push(
+        {product_id:1, quantity_on_hand:0, quantity_reserved:0, updated_at:now},
+        {product_id:2, quantity_on_hand:0, quantity_reserved:0, updated_at:now});
+    });
+
+  step({label:'管理者が入荷を登録', time:'09:20', tx:false,
+        note:'倉庫に実物が届いたので quantity_on_hand が増える。読んでから書くのではなく、足し算を DB にさせる。',
+        sql:["UPDATE inventories SET quantity_on_hand = quantity_on_hand + 10, updated_at = now() WHERE product_id = 1",
+             "UPDATE inventories SET quantity_on_hand = quantity_on_hand + 20, updated_at = now() WHERE product_id = 2"]},
+    function(s){
+      inv(s,1).quantity_on_hand = 10; inv(s,1).updated_at = now;
+      inv(s,2).quantity_on_hand = 20; inv(s,2).updated_at = now;
+    });
+
+  step({label:'田中さんが注文（キーボード2・マウス1）', time:'10:00', tx:true,
+        note:'注文時は quantity_reserved だけ増える。実物はまだ倉庫にあるので quantity_on_hand は減らない。unit_price には今の価格を焼き付ける。',
+        sql:["BEGIN",
+             "SELECT id, price FROM products WHERE id IN (1, 2)",
+             "INSERT INTO orders (user_id) VALUES (2) RETURNING id   -- → 1",
+             "INSERT INTO order_items (order_id, product_id, quantity, unit_price) VALUES (1, 1, 2, 8000), (1, 2, 1, 3000)",
+             "UPDATE inventories SET quantity_reserved = quantity_reserved + 2, updated_at = now() WHERE product_id = 1 …",
+             "UPDATE inventories SET quantity_reserved = quantity_reserved + 1, updated_at = now() WHERE product_id = 2 …",
+             "COMMIT",
+             "-- … の部分（在庫が足りるかの条件）はステップ9で扱う"]},
+    function(s){
+      s.orders.push({id:1, user_id:2, status:'pending', created_at:now, updated_at:now});
+      s.order_items.push(
+        {id:1, order_id:1, product_id:1, quantity:2, unit_price:8000},
+        {id:2, order_id:1, product_id:2, quantity:1, unit_price:3000});
+      inv(s,1).quantity_reserved = 2; inv(s,1).updated_at = now;
+      inv(s,2).quantity_reserved = 1; inv(s,2).updated_at = now;
+    });
+
+  step({label:'管理者がキーボードを値上げ', time:'10:30', tx:false,
+        note:'products.price は変わるが、注文1の order_items.unit_price は 8000 のまま。version は楽観ロック用に +1 される。',
+        sql:["UPDATE products SET price = 9000, version = version + 1, updated_at = now()",
+             "WHERE id = 1 AND version = 1   -- 自分が読んだ version のままなら更新"]},
+    function(s){
+      s.products[0].price = 9000; s.products[0].version = 2; s.products[0].updated_at = now;
+    });
+
+  step({label:'管理者が注文1を出荷', time:'13:00', tx:true,
+        note:'実物が倉庫を出たので、quantity_reserved と quantity_on_hand が同じ数だけ減る。',
+        sql:["BEGIN",
+             "UPDATE orders SET status = 'shipped', updated_at = now() WHERE id = 1",
+             "UPDATE inventories SET quantity_on_hand = quantity_on_hand - 2, quantity_reserved = quantity_reserved - 2,",
+             "                       updated_at = now() WHERE product_id = 1",
+             "UPDATE inventories SET quantity_on_hand = quantity_on_hand - 1, quantity_reserved = quantity_reserved - 1,",
+             "                       updated_at = now() WHERE product_id = 2",
+             "COMMIT"]},
+    function(s){
+      s.orders[0].status = 'shipped'; s.orders[0].updated_at = now;
+      inv(s,1).quantity_on_hand = 8;  inv(s,1).quantity_reserved = 0; inv(s,1).updated_at = now;
+      inv(s,2).quantity_on_hand = 19; inv(s,2).quantity_reserved = 0; inv(s,2).updated_at = now;
+    });
+
+  step({label:'田中さんが注文（マウス3）', time:'14:00', tx:true,
+        note:'マウスの販売可能数が 19 → 16 に減る。',
+        sql:["BEGIN",
+             "SELECT id, price FROM products WHERE id IN (2)",
+             "INSERT INTO orders (user_id) VALUES (2) RETURNING id   -- → 2",
+             "INSERT INTO order_items (order_id, product_id, quantity, unit_price) VALUES (2, 2, 3, 3000)",
+             "UPDATE inventories SET quantity_reserved = quantity_reserved + 3, updated_at = now() WHERE product_id = 2 …",
+             "COMMIT"]},
+    function(s){
+      s.orders.push({id:2, user_id:2, status:'pending', created_at:now, updated_at:now});
+      s.order_items.push({id:3, order_id:2, product_id:2, quantity:3, unit_price:3000});
+      inv(s,2).quantity_reserved = 3; inv(s,2).updated_at = now;
+    });
+
+  step({label:'田中さんが注文2をキャンセル', time:'14:15', tx:true,
+        note:'quantity_reserved だけ戻す。実物は動いていないので quantity_on_hand は触らない。order_items は履歴として残る。',
+        sql:["BEGIN",
+             "UPDATE orders SET status = 'cancelled', updated_at = now() WHERE id = 2",
+             "UPDATE inventories SET quantity_reserved = quantity_reserved - 3, updated_at = now() WHERE product_id = 2",
+             "COMMIT"]},
+    function(s){
+      s.orders[1].status = 'cancelled'; s.orders[1].updated_at = now;
+      inv(s,2).quantity_reserved = 0; inv(s,2).updated_at = now;
+    });
+
+  step({label:'田中さんがログアウト', time:'18:00', tx:false,
+        note:'行を消すことが失効。以後このリフレッシュトークンは使えない（アクセストークンは最長15分で自然に切れる）。',
+        sql:["DELETE FROM refresh_tokens WHERE token_hash = '9f86d0…'"]},
+    function(s){
+      s.refresh_tokens.splice(0,1);
+    });
+
+  // ─── 描画 ───
+  var i = 0;
+  var grid = document.getElementById('grid');
+  var dots = document.getElementById('dots');
+  var tsBox = document.getElementById('ts');
+
+  steps.forEach(function(_, k){
+    var b = document.createElement('button');
+    b.className = 'dot'; b.textContent = k;
+    b.setAttribute('aria-label', 'ステップ ' + k);
+    b.addEventListener('click', function(){ i = k; render(); });
+    dots.appendChild(b);
+  });
+
+  function esc(v){ return String(v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+  function visibleCols(t){
+    var cols = t.cols.filter(function(c){ return tsBox.checked || !TS[c]; });
+    if(t.name === 'inventories') cols = cols.concat(['(販売可能)']);
+    return cols;
+  }
+  function val(t, row, c){
+    if(c === '(販売可能)') return row.quantity_on_hand - row.quantity_reserved;
+    return row[c];
+  }
+  function linkAttr(t, c, v){
+    var parent = FK[t.name] && FK[t.name][c];
+    if(parent) return ' data-link="' + parent + ':' + v + '" data-fk="' + parent + ':' + v + '"';
+    if(c === t.key) return ' data-link="' + t.name + ':' + v + '"';
+    return '';
+  }
+
+  function render(){
+    var s = steps[i], cur = s.state, prev = i ? steps[i-1].state : null;
+    document.getElementById('num').textContent = 'ステップ ' + i + ' / ' + (steps.length - 1);
+    document.getElementById('label').textContent = s.label;
+    document.getElementById('time').textContent = s.time ? '10/04 ' + s.time : '';
+    document.getElementById('note').textContent = s.note;
+    document.getElementById('sql').textContent = s.sql.join('\n');
+    document.getElementById('tx').style.display = s.tx ? '' : 'none';
+    Array.prototype.forEach.call(dots.children, function(b, k){ b.classList.toggle('cur', k === i); });
+    try { history.replaceState(null, '', '#' + i); } catch(e) {}
+
+    grid.innerHTML = '';
+    TABLES.forEach(function(t){
+      var cols = visibleCols(t);
+      var rows = cur[t.name], pr = prev ? prev[t.name] : [];
+      var pmap = {}; pr.forEach(function(r){ pmap[r[t.key]] = r; });
+      var cmap = {}; rows.forEach(function(r){ cmap[r[t.key]] = true; });
+      var touched = false, body = '';
+
+      rows.forEach(function(r){
+        var p = pmap[r[t.key]];
+        var rowAttr = ' data-row="' + t.name + ':' + r[t.key] + '"';
+        if(!p){
+          touched = true;
+          body += '<tr class="nw"' + rowAttr + '>' + cols.map(function(c){
+            var v = val(t, r, c);
+            return '<td' + (c === '(販売可能)' ? '' : linkAttr(t, c, v)) + '>' + esc(v) + '</td>';
+          }).join('') + '</tr>';
+          return;
+        }
+        body += '<tr' + rowAttr + '>' + cols.map(function(c){
+          var v = val(t, r, c), pv = val(t, p, c);
+          var drv = c === '(販売可能)';
+          if(pv !== v){
+            touched = true;
+            return '<td class="cg' + (drv ? ' drv' : '') + '"><s>' + esc(pv) + '</s> → ' + esc(v) + '</td>';
+          }
+          return '<td' + (drv ? ' class="drv"' : linkAttr(t, c, v)) + '>' + esc(v) + '</td>';
+        }).join('') + '</tr>';
+      });
+
+      pr.forEach(function(r){
+        if(cmap[r[t.key]]) return;
+        touched = true;
+        body += '<tr class="dl">' + cols.map(function(c){ return '<td>' + esc(val(t, r, c)) + '</td>'; }).join('') + '</tr>';
+      });
+
+      if(!body) body = '<tr><td class="empty" colspan="' + cols.length + '">0行</td></tr>';
+
+      var refs = FK[t.name]
+        ? Object.keys(FK[t.name]).map(function(c){ return c + ' → ' + FK[t.name][c] + '.id'; }).join('　')
+        : '';
+
+      var card = document.createElement('div');
+      card.className = 'tb' + (touched ? ' on' : '');
+      card.innerHTML =
+        '<div class="head"><span class="name">' + t.name + '</span>' +
+        (touched ? '<span class="badge">このステップで変化</span>' : '') + '</div>' +
+        '<div class="refs">' + refs + '</div>' +
+        '<div class="scroll"><table><thead><tr>' +
+        cols.map(function(c){ return '<th' + (c === '(販売可能)' ? ' class="drv"' : '') + '>' + c + '</th>'; }).join('') +
+        '</tr></thead><tbody>' + body + '</tbody></table></div>';
+      grid.appendChild(card);
+    });
+  }
+
+  // ─── 繋がっている行のハイライト ───
+  function clearLit(){ grid.querySelectorAll('tr.lit').forEach(function(tr){ tr.classList.remove('lit'); }); }
+  function lightUp(link){
+    clearLit();
+    if(!link) return;
+    grid.querySelectorAll('tr[data-row="' + link + '"]').forEach(function(tr){ tr.classList.add('lit'); });
+    grid.querySelectorAll('td[data-fk="' + link + '"]').forEach(function(td){ td.closest('tr').classList.add('lit'); });
+  }
+  grid.addEventListener('mouseover', function(e){
+    var td = e.target.closest('td[data-link]');
+    lightUp(td ? td.getAttribute('data-link') : null);
+  });
+  grid.addEventListener('mouseleave', clearLit);
+
+  // ─── 操作 ───
+  document.getElementById('prev').addEventListener('click', function(){ if(i > 0){ i--; render(); } });
+  document.getElementById('next').addEventListener('click', function(){ if(i < steps.length - 1){ i++; render(); } });
+  tsBox.addEventListener('change', render);
+  document.addEventListener('keydown', function(e){
+    if(e.target.tagName === 'INPUT') return;
+    if(e.key === 'ArrowLeft' && i > 0){ i--; render(); }
+    if(e.key === 'ArrowRight' && i < steps.length - 1){ i++; render(); }
+  });
+
+  var h = parseInt(location.hash.slice(1), 10);
+  if(!isNaN(h) && h >= 0 && h < steps.length) i = h;
+  render();
+})();
+</script>
+</body>
+</html>
