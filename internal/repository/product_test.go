@@ -32,8 +32,8 @@ func TestProductRepository_Create(t *testing.T) {
 					WillReturnRows(sqlmock.NewRows([]string{"id", "version", "created_at", "udpated_at"}).
 						AddRow(1, 1, testTime, testTime))
 			},
-			wantErr: nil,
-			wantID: 1,
+			wantErr:     nil,
+			wantID:      1,
 			wantVersion: 1,
 		},
 		{
@@ -41,7 +41,7 @@ func TestProductRepository_Create(t *testing.T) {
 			setup: func(mock sqlmock.Sqlmock) {
 				mock.ExpectQuery(regexp.QuoteMeta("INSERT INTO products")).
 					WithArgs("SKU-001", "テスト商品", 1000).
-					WillReturnError(&pgconn.PgError{Code: pgerrcode.UniqueViolation})				
+					WillReturnError(&pgconn.PgError{Code: pgerrcode.UniqueViolation})
 			},
 			wantErr: domain.ErrConflict,
 		},
@@ -88,4 +88,73 @@ func TestProductRepository_Create(t *testing.T) {
 	}
 }
 
-// TODO:アプリの全体像把握、上記テストコードの理解、続き
+func TestProductRepository_GetByID(t *testing.T) {
+	cols := []string{"id", "sku", "name", "price", "version", "created_at", "updated_at"}
+	query := regexp.QuoteMeta("SELECT id, sku, name, price, version, created_at, updated_at FROM products")
+
+	tests := []struct {
+		name    string
+		setup   func(mock sqlmock.Sqlmock)
+		want    *domain.Product
+		wantErr error
+	}{
+		{
+			name: "成功：1行をProductに詰めて返す",
+			setup: func(mock sqlmock.Sqlmock) {
+				mock.ExpectQuery(query).
+					WithArgs(1).
+					WillReturnRows(sqlmock.NewRows(cols).
+						AddRow(1, "SKU-001", "テスト商品", 1000, 3, testTime, testTime))
+			},
+			want: &domain.Product{
+				ID: 1, SKU: "SKU-001", Name: "テスト商品", Price: 1000, Version: 3, CreatedAt: testTime, UpdatedAt: testTime,
+			},
+		},
+		{
+			name: "0行：sql.ErrNoRowsをErrNotFoundに翻訳する",
+			setup: func(mock sqlmock.Sqlmock) {
+				mock.ExpectQuery(query).
+					WithArgs(1).
+					WillReturnRows(sqlmock.NewRows(cols))
+			},
+			wantErr: domain.ErrNotFound,
+		},
+		{
+			name: "DBエラー：wrapして返す",
+			setup: func(mock sqlmock.Sqlmock) {
+				mock.ExpectQuery(query).
+					WithArgs(1).
+					WillReturnError(errDB)
+			},
+			wantErr: errDB,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			db, mock, err := sqlmock.New()
+			if err != nil {
+				t.Fatalf("sqlmock.New: %v", err)
+			}
+			defer db.Close()
+
+			tt.setup(mock)
+			repo := NewProductRepository(db)
+
+			got, err := repo.GetByID(t.Context(), 1)
+
+			if !errors.Is(err, tt.wantErr) {
+				t.Fatalf("err = %v, want %v", err, tt.wantErr)
+			}
+
+			if tt.wantErr == nil {
+				if *got != *tt.want {
+					t.Errorf("got %+v, want %+v", *got, *tt.want)
+				}
+			}
+
+			if err := mock.ExpectationsWereMet(); err != nil {
+				t.Errorf("unmet expectations: %v", err)
+			}
+		})
+	}
+}
