@@ -35,7 +35,7 @@ func (r *ProductRepository) Create(ctx context.Context, p *domain.Product) error
 }
 
 func (r *ProductRepository) GetByID(ctx context.Context, id int64) (*domain.Product, error) {
-	const query = `SELECT id, sku, price, version, created_at, updated_at FROM products WHERE id = $1`
+	const query = `SELECT id, sku, name, price, version, created_at, updated_at FROM products WHERE id = $1`
 
 	var p domain.Product
 	err := r.db.QueryRowContext(ctx, query, id).Scan(

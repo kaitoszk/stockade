@@ -29,7 +29,7 @@ func TestProductRepository_Create(t *testing.T) {
 			setup: func(mock sqlmock.Sqlmock) {
 				mock.ExpectQuery(regexp.QuoteMeta("INSERT INTO products")).
 					WithArgs("SKU-001", "テスト商品", 1000).
-					WillReturnRows(sqlmock.NewRows([]string{"id", "version", "created_at", "udpated_at"}).
+					WillReturnRows(sqlmock.NewRows([]string{"id", "version", "created_at", "updated_at"}).
 						AddRow(1, 1, testTime, testTime))
 			},
 			wantErr:     nil,
@@ -77,7 +77,7 @@ func TestProductRepository_Create(t *testing.T) {
 				if p.ID != tt.wantID {
 					t.Errorf("p.ID = %d, want %d", p.ID, tt.wantID)
 				}
-				if p.Version != int(tt.wantVersion) {
+				if p.Version != tt.wantVersion {
 					t.Errorf("p.Version = %d, want %d", p.Version, tt.wantVersion)
 				}
 			}
@@ -177,7 +177,7 @@ func TestProductRepository_Update(t *testing.T) {
 					WithArgs("新しい名前", 1200, 1, 3).
 					WillReturnRows(sqlmock.NewRows(returningCols).AddRow(4, testTime))
 			},
-			wantErr: nil,
+			wantErr:     nil,
 			wantVersion: 4,
 		},
 		{
@@ -187,7 +187,7 @@ func TestProductRepository_Update(t *testing.T) {
 					WithArgs("新しい名前", 1200, 1, 3).
 					WillReturnError(errDB)
 			},
-			wantErr: errDB,
+			wantErr:     errDB,
 			wantVersion: 3,
 		},
 		{
@@ -200,7 +200,7 @@ func TestProductRepository_Update(t *testing.T) {
 					WithArgs(1).
 					WillReturnError(errDB)
 			},
-			wantErr: errDB,
+			wantErr:     errDB,
 			wantVersion: 3,
 		},
 		{
@@ -213,20 +213,20 @@ func TestProductRepository_Update(t *testing.T) {
 					WithArgs(1).
 					WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(false))
 			},
-			wantErr: domain.ErrNotFound,
+			wantErr:     domain.ErrNotFound,
 			wantVersion: 3,
 		},
 		{
 			name: "UPDATEが0行、商品は存在する：version不一致なのでErrConflict",
 			setup: func(mock sqlmock.Sqlmock) {
 				mock.ExpectQuery(updateQuery).
-					WithArgs("新しい商品", 1200, 1, 3).
+					WithArgs("新しい名前", 1200, 1, 3).
 					WillReturnRows(sqlmock.NewRows(returningCols))
 				mock.ExpectQuery(existsQuery).
 					WithArgs(1).
-					WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRows(true))
+					WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(true))
 			},
-			wantErr: domain.ErrConflict,
+			wantErr:     domain.ErrConflict,
 			wantVersion: 3,
 		},
 	}
@@ -249,7 +249,7 @@ func TestProductRepository_Update(t *testing.T) {
 				t.Fatalf("err = %v, want %v", err, tt.wantErr)
 			}
 
-			if p.Version != int(tt.wantVersion) {
+			if p.Version != tt.wantVersion {
 				t.Errorf("p.Version = %d, want %d", p.Version, tt.wantVersion)
 			}
 
