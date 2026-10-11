@@ -90,10 +90,10 @@ func TestInventoryReposity_GetByProductID(t *testing.T) {
 						AddRow(1, 10, 3, testTime))
 			},
 			wantStock: &domain.Inventory{
-				ProductID: 1,
-				QuantityOnHand: 10,
+				ProductID:        1,
+				QuantityOnHand:   10,
 				QuantityReserved: 3,
-				UpdatedAt: testTime,
+				UpdatedAt:        testTime,
 			},
 		},
 		{
@@ -142,4 +142,74 @@ func TestInventoryReposity_GetByProductID(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestInventoryRepository_AddStock(t *testing.T) {
+	cols := []string{"product_id", "quantity_on_hand", "quantity_reserved", "updated_at"}
+	query := regexp.QuoteMeta("UPDATE inventories")
+
+	tests := []struct {
+		name      string
+		setup     func(mock sqlmock.Sqlmock)
+		wantStock *domain.Inventory
+		wantErr   error
+	}{
+		{
+			name: "成功：更新後の在庫をInventoryに詰めて返す",
+			setup: func(mock sqlmock.Sqlmock) {
+				mock.ExpectQuery(query).
+					WithArgs(10, 1).
+					WillReturnRows(sqlmock.NewRows(cols).
+						AddRow(1, 15, 3, testTime))
+			},
+			wantStock: &domain.Inventory{
+				ProductID:        1,
+				QuantityOnHand:   15,
+				QuantityReserved: 3,
+				UpdatedAt:        testTime,
+			},
+		},
+		{
+			name: "0行：在庫行がないのでErrNotFound",
+			setup: func(mock sqlmock.Sqlmock) {
+				mock.ExpectQuery(query).
+					WithArgs(10, 1).
+					WillReturnRows(sqlmock.NewRows(cols))
+			},
+			wantErr: domain.ErrNotFound,
+		},
+		{
+			name: "DBエラー：wrapして返す",
+			setup: func(mock sqlmock.Sqlmock) {
+				mock.ExpectQuery(query).
+					WithArgs(10, 1).
+					WillReturnError(errDB)
+			},
+			wantErr: errDB,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			db, mock, err := sqlmock.New()
+			if err != nil {
+				t.Fatalf("sqlmock.New: %v", err)
+			}
+			defer db.Close()
+			tt.setup(mock)
+			repo := NewInventoryRepository(db)
+			got, err := repo.AddStock(t.Context(), 1, 10)
+
+			if tt.wantErr == nil {
+				if *got != *tt.wantStock {
+					t.Errorf("got %+vc, want %+v", *got, *tt.wantStock)
+				}
+			}
+			if err := mock.ExpectationsWereMet(); err != nil {
+				t.Errorf("unmet expectations: %v", err)
+			}
+
+		})
+	}
+
 }
