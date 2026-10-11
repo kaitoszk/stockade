@@ -51,3 +51,27 @@ func (r *InventoryRepository) GetByProductID(ctx context.Context, productID int6
 	}
 	return &inv, err
 }
+
+func (r *InventoryRepository) AddStock(ctx context.Context, productID, qty int64) (*domain.Inventory, error) {
+	const query = `
+		UPDATE inventories
+		SET quantity_on_hand = quantity_on_hand + $1,
+		    updated_at = now()
+		WHERE product_id = $2
+		RETURNING product_id, quantity_on_hand, quantity_reserved, updated_at
+	`
+	var inv domain.Inventory
+	err := r.db.QueryRowContext(ctx, query, qty, productID).Scan(
+		&inv.ProductID,
+		&inv.QuantityOnHand,
+		&inv.QuantityReserved,
+		&inv.UpdatedAt,
+	)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, domain.ErrNotFound
+		}
+		return nil, fmt.Errorf("add stock: %w", err)
+	}
+	return &inv, nil
+}
