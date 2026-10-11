@@ -49,5 +49,5 @@ func (r *InventoryRepository) GetByProductID(ctx context.Context, productID int6
 		}
 		return nil, fmt.Errorf("select inventory: %w", err)
 	}
-	return &inv, err	
+	return &inv, err
 }
