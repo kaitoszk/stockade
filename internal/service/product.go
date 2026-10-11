@@ -1,0 +1,45 @@
+package service
+
+import (
+	"context"
+	"database/sql"
+	"fmt"
+
+	"github.com/kaitoszk/stockade/internal/domain"
+	"github.com/kaitoszk/stockade/internal/repository"
+)
+
+type ProductService struct {
+	db *sql.DB
+}
+
+func NewProductService(db *sql.DB) *ProductService {
+	return &ProductService{db: db}
+}
+
+func (s *ProductService) Create(ctx context.Context, p *domain.Product) error {
+	if p.SKU == "" || p.Name == "" || p.Price < 0 {
+		return domain.ErrInvalidInput
+	}
+
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin tx: %w", err)
+	}
+	defer tx.Rollback()
+
+	productRepo := repository.NewProductRepository(tx)
+	inventoryRepo := repository.NewInventoryRepository(tx)
+
+	if err := productRepo.Create(ctx, p); err != nil {
+		return fmt.Errorf("create product: %w", err)
+	}
+	if err := inventoryRepo.Create(ctx, p.ID); err != nil {
+		return fmt.Errorf("create inventory: %w", err)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("commit: %w", err)
+	}
+	return nil	
+}
