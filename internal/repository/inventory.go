@@ -2,6 +2,8 @@ package repository
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"fmt"
 
 	"github.com/kaitoszk/stockade/internal/domain"
@@ -27,4 +29,25 @@ func (r *InventoryRepository) Create(ctx context.Context, productID int64) error
 	return nil
 }
 
-// TODO:上記の理解と、GetByProductIDメソッドから
+func (r *InventoryRepository) GetByProductID(ctx context.Context, productID int64) (*domain.Inventory, error) {
+	const query = `
+		SELECT product_id, quantity_on_hand, quantity_reserved, updated_at
+		FROM inventories
+		WHERE product_id = $1
+	`
+
+	var inv domain.Inventory
+	err := r.db.QueryRowContext(ctx, query, productID).Scan(
+		&inv.ProductID,
+		&inv.QuantityOnHand,
+		&inv.QuantityReserved,
+		&inv.UpdatedAt,
+	)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, domain.ErrNotFound
+		}
+		return nil, fmt.Errorf("select inventory: %w", err)
+	}
+	return &inv, err	
+}
