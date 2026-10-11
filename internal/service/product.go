@@ -41,5 +41,5 @@ func (s *ProductService) Create(ctx context.Context, p *domain.Product) error {
 	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("commit: %w", err)
 	}
-	return nil	
+	return nil
 }
