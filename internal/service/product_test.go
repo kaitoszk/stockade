@@ -27,7 +27,24 @@ func TestProductService_Create(t *testing.T) {
 		wantErr error
 	}{
 		{
-			// TODO
+			name: "成功：BEGIN->商品->在庫->COMMITの順に実行される",
+			input: valid,
+			setup: func(mock sqlmock.Sqlmock) {
+				mock.ExpectBegin()
+				mock.ExpectQuery(productQuery).
+					WithArgs("SKU-001", "テスト商品", 1000).
+					WillReturnRows(sqlmock.NewRows(returningCols).AddRow(42, 1, testTime))
+				mock.ExpectExec(inventoryQuery).
+					WithArgs(42).
+					WillReturnResult(sqlmock.NewResult(0, 1))
+			},
+			wantErr: nil,
+		},
+		{
+			name: "SKUが空：BEGINせずにErrInvalidInput",
+			input: domain.Product{SKU: "", Name: "テスト商品", Price: 1000},
+			setup: func(mock sqlmock.Sqlmock) {},
+			wantErr: domain.ErrInvalidInput,
 		}
 	}
 
