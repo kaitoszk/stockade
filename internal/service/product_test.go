@@ -138,3 +138,69 @@ func TestProductService_Create(t *testing.T) {
 		})
 	}
 }
+
+func TestProductService_GetByID(t *testing.T) {
+	query := regexp.QuoteMeta("SELECT id, sku, name, price, version, created_at, updated_at FROM products")
+	cols := []string{"id", "sku", "name", "price", "version", "created_at", "upated_at"}
+
+	tests := []struct {
+		name        string
+		setup       func(mock sqlmock.Sqlmock)
+		wantProduct *domain.Product
+		wantErr     error
+	}{
+		{
+			name: "成功：repositoryの結果をそのまま返す",
+			setup: func(mock sqlmock.Sqlmock) {
+				mock.ExpectQuery(query).
+					WithArgs(1).
+					WillReturnRows(sqlmock.NewRows(cols).
+						AddRow(1, "SKU-001", "テスト商品", 1000, 3, testTime, testTime))
+			},
+			wantProduct: &domain.Product{
+				ID: 1,
+				SKU: "SKU-001",
+				Name: "テスト商品",
+				Price: 1000,
+				Version: 3,
+				CreatedAt: testTime,
+				UpdatedAt: testTime,
+			},
+		},
+		{
+			name: "存在しない：ErrNotFoundがwrapされて届く",
+			setup: func(mock sqlmock.Sqlmock) {
+				mock.ExpectQuery(query).
+					WithArgs(1).
+					WillReturnRows(sqlmock.NewRows(cols))
+			},
+			wantErr: domain.ErrNotFound,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			db, mock, err := sqlmock.New()
+			if err != nil {
+				t.Fatalf("sqlmock.New: %v", err)
+			}
+			defer db.Close()
+			tt.setup(mock)
+			svc := NewProductService(db)
+			got, err := svc.GetByID(t.Context(), 1)
+
+			if !errors.Is(err, tt.wantErr) {
+				t.Fatalf("err = %v, want %v", err, tt.wantErr)
+			}
+
+			if tt.wantErr == nil && *got != *tt.wantProduct {
+				t.Errorf("got %+v, want %+v", *got, *tt.wantProduct)
+		}	
+
+			if err := mock.ExpectationsWereMet(); err != nil {
+				t.Errorf("unmet expectations: %v", err)
+			}
+
+			
+		})
+	}
+}
