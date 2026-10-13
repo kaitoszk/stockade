@@ -43,3 +43,12 @@ func (s *ProductService) Create(ctx context.Context, p *domain.Product) error {
 	}
 	return nil
 }
+
+func (s *ProductService) GetByID(ctx context.Context, id int64) (*domain.Product, error) {
+	repo := repository.NewProductRepository(s.db)
+	p, err := repo.GetByID(ctx, id)
+	if err != nil {
+		return nil, fmt.Errorf("get product: %w", err)
+	}
+	return p, nil
+}
