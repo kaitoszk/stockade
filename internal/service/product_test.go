@@ -21,32 +21,120 @@ func TestProductService_Create(t *testing.T) {
 	valid := domain.Product{SKU: "SKU-001", Name: "テスト商品", Price: 1000}
 
 	tests := []struct {
-		name string
-		input domain.Product
-		setup func(mock sqlmock.Sqlmock)
+		name    string
+		input   domain.Product
+		setup   func(mock sqlmock.Sqlmock)
 		wantErr error
 	}{
 		{
-			name: "成功：BEGIN->商品->在庫->COMMITの順に実行される",
+			name:  "成功：BEGIN->商品->在庫->COMMITの順に実行される",
 			input: valid,
 			setup: func(mock sqlmock.Sqlmock) {
 				mock.ExpectBegin()
 				mock.ExpectQuery(productQuery).
 					WithArgs("SKU-001", "テスト商品", 1000).
-					WillReturnRows(sqlmock.NewRows(returningCols).AddRow(42, 1, testTime))
+					WillReturnRows(sqlmock.NewRows(returningCols).AddRow(42, 1, testTime, testTime))
 				mock.ExpectExec(inventoryQuery).
 					WithArgs(42).
 					WillReturnResult(sqlmock.NewResult(0, 1))
+				mock.ExpectCommit()
 			},
 			wantErr: nil,
 		},
 		{
-			name: "SKUが空：BEGINせずにErrInvalidInput",
-			input: domain.Product{SKU: "", Name: "テスト商品", Price: 1000},
-			setup: func(mock sqlmock.Sqlmock) {},
+			name:    "SKUが空：BEGINせずにErrInvalidInput",
+			input:   domain.Product{SKU: "", Name: "テスト商品", Price: 1000},
+			setup:   func(mock sqlmock.Sqlmock) {},
 			wantErr: domain.ErrInvalidInput,
-		}
+		},
+		{
+			name:    "商品名が空：BEGINせずにErrInvalidInput",
+			input:   domain.Product{SKU: "SKU-001", Name: "", Price: 1000},
+			setup:   func(mock sqlmock.Sqlmock) {},
+			wantErr: domain.ErrInvalidInput,
+		},
+		{
+			name:    "価格が負の値：BEGINせずにErrInvalidInput",
+			input:   domain.Product{SKU: "SKU-001", Name: "テスト商品", Price: -1},
+			setup:   func(mock sqlmock.Sqlmock) {},
+			wantErr: domain.ErrInvalidInput,
+		},
+		{
+			name:  "BEGINが失敗：何も実行せずにwrapして返す",
+			input: valid,
+			setup: func(mock sqlmock.Sqlmock) {
+				mock.ExpectBegin().WillReturnError(errDB)
+			},
+			wantErr: errDB,
+		},
+		{
+			name:  "商品のINSERTが失敗：ROLLBACKされる",
+			input: valid,
+			setup: func(mock sqlmock.Sqlmock) {
+				mock.ExpectBegin()
+				mock.ExpectQuery(productQuery).
+					WithArgs("SKU-001", "テスト商品", 1000).
+					WillReturnError(errDB)
+				mock.ExpectRollback()
+			},
+			wantErr: errDB,
+		},
+		{
+			name:  "在庫のINSERTが失敗：商品のINSERTごとROLLBACKされる",
+			input: valid,
+			setup: func(mock sqlmock.Sqlmock) {
+				mock.ExpectBegin()
+				mock.ExpectQuery(productQuery).
+					WithArgs("SKU-001", "テスト商品", 1000).
+					WillReturnRows(sqlmock.NewRows(returningCols).AddRow(42, 1, testTime, testTime))
+				mock.ExpectExec(inventoryQuery).
+					WithArgs(42).
+					WillReturnError(errDB)
+				mock.ExpectRollback()
+			},
+			wantErr: errDB,
+		},
+		{
+			name:  "COMMITが失敗：wrapして返す",
+			input: valid,
+			setup: func(mock sqlmock.Sqlmock) {
+				mock.ExpectBegin()
+				mock.ExpectQuery(productQuery).
+					WithArgs("SKU-001", "テスト商品", 1000).
+					WillReturnRows(sqlmock.NewRows(returningCols).AddRow(42, 1, testTime, testTime))
+				mock.ExpectExec(inventoryQuery).
+					WithArgs(42).
+					WillReturnResult(sqlmock.NewResult(0, 1))
+				mock.ExpectCommit().WillReturnError(errDB)
+			},
+			wantErr: errDB,
+		},
 	}
 
-	
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			db, mock, err := sqlmock.New()
+			if err != nil {
+				t.Fatalf("sqlmock.New: %v", err)
+			}
+			defer db.Close()
+			tt.setup(mock)
+
+			svc := NewProductService(db)
+			p := tt.input
+			err = svc.Create(t.Context(), &p)
+
+			if !errors.Is(err, tt.wantErr) {
+				t.Fatalf("err = %v, want %v", err, tt.wantErr)
+			}
+
+			if tt.wantErr == nil && p.ID != 42 {
+				t.Errorf("p.ID = %d, want 42", p.ID)
+			}
+
+			if err := mock.ExpectationsWereMet(); err != nil {
+				t.Errorf("unmet expectations: %v", err)
+			}
+		})
+	}
 }
