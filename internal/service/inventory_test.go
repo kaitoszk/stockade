@@ -70,3 +70,75 @@ func TestInventoryService_GetByProductID(t *testing.T) {
 		})
 	}
 }
+
+func TestInventoryService_AddStock(t *testing.T) {
+	query := regexp.QuoteMeta("UPDATE inventories")
+	cols := []string{"product_id", "quantity_on_hand", "quantity_reserved", "updated_at"}
+
+	tests := []struct {
+		name string
+		qty int64
+		setup func(mock sqlmock.Sqlmock)
+		wantInventory *domain.Inventory
+		wantErr error
+	}{
+		{
+			name: "成功：更新後の在庫を返す",
+			qty: 10,
+			setup: func(mock sqlmock.Sqlmock) {
+				mock.ExpectQuery(query).
+					WillReturnRows(sqlmock.NewRows(cols).AddRow(1, 15, 3, testTime))
+			},
+			wantInventory: &domain.Inventory{
+				ProductID: 1,
+				QuantityOnHand: 15,
+				QuantityReserved: 3,
+				UpdatedAt: testTime,
+			},
+		},
+		{
+			name: "qtyが0：SQLを投げずにErrInvalidInput",
+			qty: 0,
+			setup: func(mock sqlmock.Sqlmock) {},
+			wantErr: domain.ErrInvalidInput,
+		},
+		{
+			name: "在庫行がない：ErrNotFoundがwrapされて届く",
+			qty: 10,
+			setup: func(mock sqlmock.Sqlmock) {
+				mock.ExpectQuery(query).
+					WillReturnRows(sqlmock.NewRows(cols))
+			},
+			wantErr: domain.ErrNotFound,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			db, mock, err := sqlmock.New()
+			if err != nil {
+				t.Fatalf("sqlmock.New: %v", err)
+			}
+			defer db.Close()
+
+			tt.setup(mock)
+			svc := NewInventoryService(db)
+			got, err := svc.AddStock(t.Context(), 1, tt.qty)
+
+			if !errors.Is(err, tt.wantErr) {
+				t.Fatalf("err = %v, want %v", err, tt.wantErr)
+			}
+
+			if tt.wantErr == nil && *got != *tt.wantInventory {
+				t.Errorf("got %+v, want %+v", got, tt.wantInventory)
+			}
+
+			if err := mock.ExpectationsWereMet(); err != nil {
+				t.Errorf("unmet expectations: %v", err)
+			}
+			
+		})
+	}
+
+	
+}
