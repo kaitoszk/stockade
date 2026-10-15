@@ -59,7 +59,7 @@ func (s*ProductService) Update(ctx context.Context, p *domain.Product) error {
 	}
 	repo := repository.NewProductRepository(s.db)
 	if err := repo.Update(ctx, p); err != nil {
-		return fmt.Errorf("update product: %w", err)
+		return fmt.Errorf("edit product: %w", err)
 	}
 	return nil
 }
