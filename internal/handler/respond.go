@@ -60,7 +60,7 @@ func statusFor(err error) (int, string) {
 		case errors.Is(err, domain.ErrInsufficientStock):
 			return http.StatusConflict, "insufficient stock"
 		case errors.Is(err, domain.ErrInvalidStatusTransition):
-			return http.StatusConflict, "incalid status transition"
+			return http.StatusConflict, "invalid status transition"
 		default:
 			return http.StatusInternalServerError, "internal server error"
 	}
