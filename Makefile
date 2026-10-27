@@ -5,7 +5,7 @@ export
 # .env の値から組み立てる。手書きの重複を排除
 DATABASE_URL := postgres://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@localhost:$(POSTGRES_PORT)/$(POSTGRES_DB)?sslmode=disable
 
-.PHONY: up down reset migrate-up migrate-down migrate-create migrate-version psql test
+.PHONY: up down reset migrate-up migrate-down migrate-create migrate-version psql test run
 
 up:
 	docker compose up -d
@@ -34,3 +34,6 @@ psql:
 
 test:
 	gotestsum --format testname -- -count=1 ./...
+
+run:
+	go run ./cmd/api
