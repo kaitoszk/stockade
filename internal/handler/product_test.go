@@ -39,6 +39,19 @@ func (f *fakeProductService) Create(_ context.Context, p *domain.Product) error 
 	return nil
 }
 
+// func (f *fakeProductService) GetByID(_ context.Context, p *domain.Product) error {}
+
+func (f *fakeProductService) Update(_ context.Context, p *domain.Product) error {
+	f.got = p
+	if f.err != nil {
+		return f.err
+	}
+
+	p.Version++
+	p.UpdatedAt = testTime
+	return nil
+}
+
 func TestProductHandler_Create(t *testing.T) {
 	tests := []struct {
 		name       string
@@ -162,3 +175,6 @@ func TestProductHandler_Create(t *testing.T) {
 		})
 	}
 }
+
+// func TestProductHandler_GetByID(t *testing.T) {}
+// func TestProductHandler_Update(t *testing.T) {}

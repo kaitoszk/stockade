@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/kaitoszk/stockade/internal/domain"
@@ -16,6 +17,8 @@ import (
 // 一旦Createだけ
 type productService interface {
 	Create(ctx context.Context, p *domain.Product) error
+	// GetByID(ctx context.Context, id int64) (*domain.Product, error)
+	Update(ctx context.Context, p *domain.Product) error
 }
 
 // [/products]系のエンドポイントを担当する
@@ -34,6 +37,12 @@ type createProductRequest struct {
 	SKU   string `json:"sku"`
 	Name  string `json:"name"`
 	Price int64  `json:"price"`
+}
+
+type updateProductRequest struct {
+	Name    string `json:"name"`
+	Price   int64  `json:"price"`
+	Version int64  `json:"version"`
 }
 
 // 商品を返す時のJSONの形
@@ -93,3 +102,33 @@ func (h *ProductHandler) Create(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, h.logger, http.StatusCreated, newProductResponse(p))
 }
 
+func (h *ProductHandler) Update(w http.ResponseWriter, r *http.Request) {
+	// idとして読めるか
+	idStr := r.PathValue("id")
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		fmt.Printf("【DEBUG】handler.Update:　path id=%q err=%v\n", r.PathValue("id"), err)
+
+		writeJSON(w, h.logger, http.StatusBadRequest, errorResponse{Error: "invalid id"})
+		return
+	}
+
+	// JSONとして読めるか
+	var req updateProductRequest
+	if err := decodeJSON(w, r, &req); err != nil {
+		fmt.Printf("【DEBUG】handler.Update: decode error=%v\n", err)
+
+		writeJSON(w, h.logger, http.StatusBadRequest, errorResponse{Error: "invalid JSON"})
+		return
+	}
+	fmt.Printf("【DEBUG】handler.Update: id=%d req%+v\n", id, req)
+	p := &domain.Product{ID: id, Name: req.Name, Price: req.Price, Version: req.Version}
+
+	// serviceが成功したか
+	if err := h.svc.Update(r.Context(), p); err != nil {
+		writeError(w, r, h.logger, err)
+		return
+	}
+	fmt.Printf("【DEBUG】handler.Update: updated p=%+v\n", p)
+	writeJSON(w, h.logger, http.StatusOK, newProductResponse(p))
+}
