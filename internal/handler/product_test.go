@@ -54,12 +54,12 @@ func (f *fakeProductService) Update(_ context.Context, p *domain.Product) error 
 
 func TestProductHandler_Create(t *testing.T) {
 	tests := []struct {
-		name       string
-		body       string
-		svcErr     error
-		wantStatus int
-		wantCalled bool
-		wantErrMsg string
+		name       string // サブテストの名前。失敗したとき、どのケースか分かるように
+		body       string // 入力：リクエストのボディ（JSON の文字列）
+		svcErr     error  // 入力：偽の service に返させるエラー。nil なら成功させる
+		wantStatus int    // 期待：返ってくるステータスコード
+		wantCalled bool   // 期待：service が呼ばれるか（出口A なら false）
+		wantErrMsg string // 期待：エラーのときの "error" の文言。成功ケースでは空文字
 	}{
 		{
 			name:       "成功：201と、採番されたidを含む商品を返す",
@@ -171,10 +171,37 @@ func TestProductHandler_Create(t *testing.T) {
 			if fake.got.SKU != "SKU-001" || fake.got.Name != "テスト商品" || fake.got.Price != 1000 {
 				t.Errorf("service received %+v", *fake.got)
 			}
-			
+
 		})
 	}
 }
 
 // func TestProductHandler_GetByID(t *testing.T) {}
-// func TestProductHandler_Update(t *testing.T) {}
+
+func TestProductHandler_Update(t *testing.T) {
+	validBody := `{"name":"新しい名前","price":1200,"version":3}`
+
+	tests := []struct {
+		name       string
+		url        string
+		body       string
+		svcError   error
+		wantStatus int
+		wantCalled bool
+		wantErrMsg string
+	}{
+		{
+			name: "成功：200と、新しいversionを含む商品を返す",
+			url: "/products/42",
+			body: validBody,
+			wantStatus: http.StatusOK,
+			wantCalled: true,
+		},
+		{
+			name: "idが数値でない：serviceを呼ばずに400",
+			// todo
+		}
+	}
+}
+
+// git commit -m "test: add httptest tests for PUT /products/{id}"
