@@ -53,7 +53,7 @@ func (s *ProductService) GetByID(ctx context.Context, id int64) (*domain.Product
 	return p, nil
 }
 
-func (s*ProductService) Update(ctx context.Context, p *domain.Product) error {
+func (s *ProductService) Update(ctx context.Context, p *domain.Product) error {
 	if p.Name == "" || p.Price < 0 || p.Version < 1 {
 		return domain.ErrInvalidInput
 	}
