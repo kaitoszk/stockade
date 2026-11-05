@@ -182,25 +182,91 @@ func TestProductHandler_Update(t *testing.T) {
 	validBody := `{"name":"新しい名前","price":1200,"version":3}`
 
 	tests := []struct {
-		name       string
-		url        string
-		body       string
-		svcError   error
-		wantStatus int
-		wantCalled bool
-		wantErrMsg string
+		name       string // サブテストの名前
+		url        string // 入力：リクエストの URL（id が数値でないケースだけ /products/abc）
+		body       string // 入力：リクエストのボディ
+		svcErr     error  // 入力：偽の service に返させるエラー。nil なら成功させる
+		wantStatus int    // 期待：ステータスコード
+		wantCalled bool   // 期待：service が呼ばれるか（出口①② なら false）
+		wantErrMsg string // 期待：エラーの文言。成功ケースでは空文字
 	}{
 		{
-			name: "成功：200と、新しいversionを含む商品を返す",
-			url: "/products/42",
-			body: validBody,
+			name:       "成功：200と、新しいversionを含む商品を返す",
+			url:        "/products/42",
+			body:       validBody,
 			wantStatus: http.StatusOK,
 			wantCalled: true,
 		},
 		{
-			name: "idが数値でない：serviceを呼ばずに400",
-			// todo
-		}
+			name:       "idが数値でない：serviceを呼ばずに400",
+			url:        "/products/abc",
+			body:       validBody,
+			wantStatus: http.StatusBadRequest,
+			wantCalled: false,
+			wantErrMsg: "invalid id",
+		},
+		{
+			name:       "JSONが壊れている：serviceを呼ばずに400",
+			url:        "/products/42",
+			body:       `{"name":`,
+			wantStatus: http.StatusBadRequest,
+			wantCalled: false,
+			wantErrMsg: "invalid JSON",
+		},
+		{
+			name:       "skuを送ってきた：変更できない項目なので、serviceを呼ばずに400",
+			url:        "/products/42",
+			body:       `{"sku":"NEW-001","name":"新しい名前","price":1200,"version":3`,
+			wantStatus: http.StatusBadRequest,
+			wantCalled: false,
+			wantErrMsg: "invalid JSON",
+		},
+		{
+			name:       "serviceがErrInvalidInput：400",
+			url:        "/products/42",
+			body:       `{"name":"","price":1200,"version":3`,
+			svcErr:     domain.ErrInvalidInput,
+			wantStatus: http.StatusBadRequest,
+			wantCalled: true,
+			wantErrMsg: "invalid input",
+		},
+		{
+			name:       "serviceがErrNotFound：404",
+			url:        "/products/42",
+			body:       validBody,
+			svcErr:     fmt.Errorf("edit product: %w", domain.ErrNotFound),
+			wantStatus: http.StatusNotFound,
+			wantCalled: true,
+			wantErrMsg: "not found",
+		},
+		{
+			name:       "serviceがErrConflict（version不一致）：409",
+			url:        "/products/42",
+			body:       validBody,
+			svcErr:     fmt.Errorf("edit product: %w", domain.ErrConflict),
+			wantStatus: http.StatusConflict,
+			wantCalled: true,
+			wantErrMsg: "conflict",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fake := &fakeProductService{err: tt.svcErr}
+
+			var logBuf bytes.Buffer
+			logger := slog.New(slog.NewTextHandler(&logBuf, nil))
+
+			h := NewProductHandler(fake, logger)
+			router := NewRouter(h)
+
+			req := httptest.NewRequest(http.MethodPost, tt.url, strings.NewReader(tt.body))
+			rec := httptest.NewRecorder()
+
+			router.ServeHTTP(rec, req)
+
+			t.Logf("【DEBUG】status=%d body=%s", rec.Code, rec.Body.String())
+			// TODO：ここからと、上記までのプログラムにコメントアウト記載して理解する
+		})
 	}
 }
 
