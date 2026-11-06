@@ -224,7 +224,7 @@ func TestProductHandler_Update(t *testing.T) {
 		{
 			name:       "serviceがErrInvalidInput：400",
 			url:        "/products/42",
-			body:       `{"name":"","price":1200,"version":3`,
+			body:       `{"name":"","price":1200,"version":3}`,
 			svcErr:     domain.ErrInvalidInput,
 			wantStatus: http.StatusBadRequest,
 			wantCalled: true,
@@ -252,6 +252,7 @@ func TestProductHandler_Update(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			fake := &fakeProductService{err: tt.svcErr}
+			t.Logf("【DEBUG】fake %v", fake)
 
 			var logBuf bytes.Buffer
 			logger := slog.New(slog.NewTextHandler(&logBuf, nil))
@@ -259,12 +260,55 @@ func TestProductHandler_Update(t *testing.T) {
 			h := NewProductHandler(fake, logger)
 			router := NewRouter(h)
 
-			req := httptest.NewRequest(http.MethodPost, tt.url, strings.NewReader(tt.body))
+			req := httptest.NewRequest(http.MethodPut, tt.url, strings.NewReader(tt.body))
 			rec := httptest.NewRecorder()
 
 			router.ServeHTTP(rec, req)
 
-			t.Logf("【DEBUG】status=%d body=%s", rec.Code, rec.Body.String())
+			t.Logf("【DEBUG】rec %v", rec)
+			
+
+			// t.Logf("【DEBUG】status=%d body=%s", rec.Code, rec.Body.String())
+			// t.Logf("【DEBUG】service got=%+v", fake.got)
+
+			if rec.Code != tt.wantStatus {
+				t.Fatalf("status = %d, want %d (body: %s)", rec.Code, tt.wantStatus, rec.Body.String())
+			}
+
+			if (fake.got != nil) != tt.wantCalled {
+				t.Fatalf("service called = %v, want %v", fake.got != nil, tt.wantCalled)
+			}
+
+			if tt.wantErrMsg != "" {
+				var got errorResponse
+
+				if err := json.NewDecoder(rec.Body).Decode(&got); err != nil {
+					t.Fatalf("decode error response: %v", err)
+				}
+
+				if got.Error != tt.wantErrMsg {
+					t.Errorf("error = %q, want %q", got.Error, tt.wantErrMsg)
+				}
+				return
+			}
+
+			var got productResponse
+			if err := json.NewDecoder(rec.Body).Decode(&got); err != nil {
+				t.Fatalf("decode product response: %v", err)
+			}
+
+			if got.Version != 4 {
+				t.Errorf("response version = %d", got.Version)
+			}
+
+			if fake.got.ID != 42 {
+				t.Errorf("service received ID = %d, want 42", fake.got.ID)
+			}
+
+			if fake.got.Name != "新しい名前" || fake.got.Price != 1200 {
+				t.Errorf("service received %+v", *fake.got)
+			}
+
 			// TODO：ここからと、上記までのプログラムにコメントアウト記載して理解する
 		})
 	}
