@@ -16,7 +16,7 @@ import (
 // 一旦Createだけ
 type productService interface {
 	Create(ctx context.Context, p *domain.Product) error
-	// GetByID(ctx context.Context, id int64) (*domain.Product, error)
+	GetByID(ctx context.Context, id int64) (*domain.Product, error)
 	Update(ctx context.Context, p *domain.Product) error
 }
 
@@ -99,6 +99,23 @@ func (h *ProductHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 	// serviceがpに書き戻したものを返す
 	writeJSON(w, h.logger, http.StatusCreated, newProductResponse(p))
+}
+
+func (h *ProductHandler) GetByID(w http.ResponseWriter, r *http.Request) {
+	id, err := parsePathID(r)
+	if err != nil {
+		fmt.Printf("【DEBUG】handler.GetByID: path id=%q err=%v\n", r.PathValue("id"), err)
+
+		writeJSON(w, h.logger, http.StatusBadRequest, errorResponse{Error: "invalid id"})
+		return
+	}
+
+	p, err := h.svc.GetByID(r.Context(), id)
+	if err != nil {
+		writeError(w, r, h.logger, err)
+		return
+	}
+	writeJSON(w, h.logger, http.StatusOK, newProductResponse(p))
 }
 
 func (h *ProductHandler) Update(w http.ResponseWriter, r *http.Request) {

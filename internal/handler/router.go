@@ -6,7 +6,7 @@ import "net/http"
 func NewRouter(products *ProductHandler) http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /products", products.Create)
-	// mux.HandleFunc("GET /products/{id}", products.GetByID)
+	mux.HandleFunc("GET /products/{id}", products.GetByID)
 	mux.HandleFunc("PUT /products/{id}", products.Update)
 	return mux
 }
