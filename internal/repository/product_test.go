@@ -162,7 +162,7 @@ func TestProductRepository_GetByID(t *testing.T) {
 func TestProductRepository_Update(t *testing.T) {
 	updateQuery := regexp.QuoteMeta("UPDATE products")
 	existsQuery := regexp.QuoteMeta("SELECT EXISTS")
-	returningCols := []string{"version", "updated_at"}
+	returningCols := []string{"id", "sku", "name", "price", "version", "created_at", "updated_at"}
 
 	tests := []struct {
 		name        string
@@ -175,7 +175,7 @@ func TestProductRepository_Update(t *testing.T) {
 			setup: func(mock sqlmock.Sqlmock) {
 				mock.ExpectQuery(updateQuery).
 					WithArgs("新しい名前", 1200, 1, 3).
-					WillReturnRows(sqlmock.NewRows(returningCols).AddRow(4, testTime))
+					WillReturnRows(sqlmock.NewRows(returningCols).AddRow(1, "SKU-001", "新しい名前", 1200, 4, testTime, testTime))
 			},
 			wantErr:     nil,
 			wantVersion: 4,

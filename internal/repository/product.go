@@ -60,11 +60,11 @@ func (r *ProductRepository) GetByID(ctx context.Context, id int64) (*domain.Prod
 func (r *ProductRepository) Update(ctx context.Context, p *domain.Product) error {
 	const query = `
 		UPDATE products SET name = $1, price = $2, version = version + 1, updated_at = now()
-		WHERE id = $3 AND version = $4 RETURNING version, updated_at
+		WHERE id = $3 AND version = $4 RETURNING id, sku, name, price, version, created_at, updated_at
 	`
 
 	err := r.db.QueryRowContext(ctx, query, p.Name, p.Price, p.ID, p.Version).
-		Scan(&p.Version, &p.UpdatedAt)
+		Scan(&p.ID, &p.SKU, &p.Name, &p.Price, &p.Version, &p.CreatedAt, &p.UpdatedAt)
 
 	if err == nil {
 		return nil
