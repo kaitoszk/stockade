@@ -206,7 +206,7 @@ func TestProductService_GetByID(t *testing.T) {
 func TestProductService_Update(t *testing.T) {
 	updateQuery := regexp.QuoteMeta("UPDATE products")
 	existsQuery := regexp.QuoteMeta("SELECT EXISTS")
-	returningCols := []string{"version", "updated_at"}
+	returningCols := []string{"id", "sku", "name", "price", "version", "created_at", "updated_at"}
 	valid := domain.Product{
 		ID:      1,
 		Name:    "新しい名前",
@@ -222,39 +222,39 @@ func TestProductService_Update(t *testing.T) {
 		wantVersion int64
 	}{
 		{
-			name: "成功：新しいversionが描き戻される",
+			name:  "成功：新しいversionが描き戻される",
 			input: valid,
 			setup: func(mock sqlmock.Sqlmock) {
 				mock.ExpectQuery(updateQuery).
 					WithArgs("新しい名前", 1200, 1, 3).
-					WillReturnRows(sqlmock.NewRows(returningCols).AddRow(4, testTime))
+					WillReturnRows(sqlmock.NewRows(returningCols).AddRow(1, "SKU-001", "新しい名前", 1200, 4, testTime, testTime))
 			},
-			wantErr: nil,
+			wantErr:     nil,
 			wantVersion: 4,
 		},
 		{
-			name: "商品が空：SQLを投げずにErrInvalidInput",
-			input: domain.Product{ID: 1, Name: "", Price: 1200, Version: 3},
-			setup: func(mock sqlmock.Sqlmock) {},
-			wantErr: domain.ErrInvalidInput,
+			name:        "商品が空：SQLを投げずにErrInvalidInput",
+			input:       domain.Product{ID: 1, Name: "", Price: 1200, Version: 3},
+			setup:       func(mock sqlmock.Sqlmock) {},
+			wantErr:     domain.ErrInvalidInput,
 			wantVersion: 3,
 		},
 		{
-			name: "価格が負：SQLを投げずにErrInvalidInput",
-			input: domain.Product{ID: 1, Name: "新しい名前", Price: -1, Version: 3},
-			setup: func(mock sqlmock.Sqlmock) {},
-			wantErr: domain.ErrInvalidInput,
+			name:        "価格が負：SQLを投げずにErrInvalidInput",
+			input:       domain.Product{ID: 1, Name: "新しい名前", Price: -1, Version: 3},
+			setup:       func(mock sqlmock.Sqlmock) {},
+			wantErr:     domain.ErrInvalidInput,
 			wantVersion: 3,
 		},
 		{
-			name: "Versionが0（送り忘れ）：409ではなくErrInvalidInput",
-			input: domain.Product{ID: 1, Name: "新しい名前", Price: 1200},
-			setup: func(mock sqlmock.Sqlmock) {},
-			wantErr: domain.ErrInvalidInput,
+			name:        "Versionが0（送り忘れ）：409ではなくErrInvalidInput",
+			input:       domain.Product{ID: 1, Name: "新しい名前", Price: 1200},
+			setup:       func(mock sqlmock.Sqlmock) {},
+			wantErr:     domain.ErrInvalidInput,
 			wantVersion: 0,
 		},
 		{
-			name: "version不一致：ErrConflictがwrapされて届く",
+			name:  "version不一致：ErrConflictがwrapされて届く",
 			input: valid,
 			setup: func(mock sqlmock.Sqlmock) {
 				mock.ExpectQuery(updateQuery).
@@ -264,7 +264,7 @@ func TestProductService_Update(t *testing.T) {
 					WithArgs(1).
 					WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(true))
 			},
-			wantErr: domain.ErrConflict,
+			wantErr:     domain.ErrConflict,
 			wantVersion: 3,
 		},
 	}

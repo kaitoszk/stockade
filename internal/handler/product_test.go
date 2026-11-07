@@ -48,6 +48,8 @@ func (f *fakeProductService) Update(_ context.Context, p *domain.Product) error 
 	}
 
 	p.Version++
+	p.SKU = "SKU-001"
+	p.CreatedAt = testTime
 	p.UpdatedAt = testTime
 	return nil
 }
@@ -266,7 +268,6 @@ func TestProductHandler_Update(t *testing.T) {
 			router.ServeHTTP(rec, req)
 
 			t.Logf("【DEBUG】rec %v", rec)
-			
 
 			// t.Logf("【DEBUG】status=%d body=%s", rec.Code, rec.Body.String())
 			// t.Logf("【DEBUG】service got=%+v", fake.got)
