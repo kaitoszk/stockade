@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"strconv"
 
 	"github.com/kaitoszk/stockade/internal/domain"
 )
@@ -81,4 +82,8 @@ func writeError(w http.ResponseWriter, r *http.Request, logger *slog.Logger, err
 		)
 	}
 	writeJSON(w, logger, status, errorResponse{Error: msg})
+}
+
+func parsePathID(r *http.Request) (int64, error) {
+	return strconv.ParseInt(r.PathValue("id"), 10, 64)
 }

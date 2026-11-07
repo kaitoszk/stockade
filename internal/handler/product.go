@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
-	"strconv"
 	"time"
 
 	"github.com/kaitoszk/stockade/internal/domain"
@@ -104,8 +103,7 @@ func (h *ProductHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 func (h *ProductHandler) Update(w http.ResponseWriter, r *http.Request) {
 	// idとして読めるか
-	idStr := r.PathValue("id")
-	id, err := strconv.ParseInt(idStr, 10, 64)
+	id, err := parsePathID(r)
 	if err != nil {
 		fmt.Printf("【DEBUG】handler.Update:　path id=%q err=%v\n", r.PathValue("id"), err)
 
